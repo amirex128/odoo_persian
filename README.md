@@ -1,0 +1,1 @@
+psql -U postgres -c "CREATE USER odoo128 WITH PASSWORD 'afFXQuCoAdUR5rdn9t5d' CREATEDB;"
