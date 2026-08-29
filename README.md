@@ -15,9 +15,36 @@
 | `docker-compose.yml` | اجرای کامل محلی با PostgreSQL و mount زندهٔ addonها |
 | `.env.compose.example` | env نمونه برای اجرای Docker Compose لوکال |
 | `.env.paas.example` | env نمونه برای PaaS و PostgreSQL خارجی |
+| `docs/odoo-configuration-and-operations.md` | راهنمای جامع تنظیمات، کانفیگ، امنیت، PostgreSQL/pgvector و عملیات Odoo |
+| `docs/odoo-addon-development.md` | راهنمای جامع ساخت، توسعه، امنیت و تست addon |
 
 ## راه‌اندازی روی PaaS با Dockerfile
-psql -U postgres -c "CREATE USER odoo WITH PASSWORD '<POSTGRES_PASSWORD>' CREATEDB;"
+برای ساخت role اختصاصی Odoo در PostgreSQL، با administrator وارد database `postgres` شوید:
+
+```bash
+psql -h <POSTGRES_HOST> -p <POSTGRES_PORT> -U <POSTGRES_ADMIN_USER> -d postgres
+```
+
+سپس role را بسازید:
+
+```sql
+CREATE ROLE odoo LOGIN PASSWORD '<POSTGRES_PASSWORD>' CREATEDB;
+```
+
+اگر role از قبل وجود دارد، password آن را هماهنگ کنید:
+
+```sql
+ALTER ROLE odoo WITH LOGIN PASSWORD '<POSTGRES_PASSWORD>';
+```
+
+برای نصب و فعال‌سازی pgvector در database هدف:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+SELECT extversion FROM pg_extension WHERE extname = 'vector';
+```
+
+راهنمای کامل این مراحل در [راهنمای تنظیمات و عملیات Odoo](docs/odoo-configuration-and-operations.md) آمده است.
 در تنظیمات build سرویس، ریشهٔ این repository را به‌عنوان context انتخاب کنید و Dockerfile پیش‌فرض را استفاده کنید. فایل `.env.paas.example` فقط template است؛ مقادیر واقعی آن را در بخش Environment/Secrets سرویس PaaS ثبت کنید، زیرا Dockerfile به‌تنهایی فایل `.env` را از filesystem سرویس بارگذاری نمی‌کند. سرویس باید HTTP را روی پورت **8069** به بیرون publish کند؛ پورت **8072** برای gevent/live-bus در صورت پشتیبانی PaaS قابل publish است.
 
 متغیرهای runtime زیر را در بخش Secrets/Environment سرویس ثبت کنید:
@@ -116,6 +143,13 @@ docker compose exec odoo bash -lc \
 ## نکات production
 
 در محیط عمومی، `ODOO_LIST_DB=False` را تنظیم کنید و یک `dbfilter` متناسب با domain خود در `odoo.conf` اضافه کنید. مقدار `admin_passwd` را هرگز در Git commit نکنید؛ wrapper مقدار آن را در runtime از `ODOO_ADMIN_PASSWD` می‌گیرد. TLS باید در reverse proxy یا خود PaaS terminate شود و `proxy_mode=True` برای این حالت فعال است.
+
+## راهنماهای پروژه
+
+| سند | موضوع |
+|---|---|
+| [راهنمای تنظیمات و عملیات Odoo](docs/odoo-configuration-and-operations.md) | نصب، env، PostgreSQL، pgvector، امنیت، volume، backup، reverse proxy و عیب‌یابی |
+| [راهنمای ساخت Addon](docs/odoo-addon-development.md) | ساختار module، manifest، ORM، مدل، view، security، OWL، report، test و انتشار |
 
 ## منابع رسمی
 
