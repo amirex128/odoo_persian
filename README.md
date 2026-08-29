@@ -141,6 +141,10 @@ docker compose exec odoo bash -lc \
 
 یکی از addonهای قابل بررسی `web_responsive` است. یک addon تا زمانی که dependencyهای آن در database نصب نشده باشند نصب نمی‌شود. `web_widget_bokeh_chart` نیز طبق manifest خود به `bokeh==3.9.0` نیاز دارد و Dockerfile آن را نصب می‌کند.
 
+برای پنج addon ایرانی، پس از deploy یا تغییر فایل‌ها باید در Odoo حالت developer را فعال کنید و از مسیر **Apps → Update Apps List → Update** فهرست را refresh کنید. فیلتر پیش‌فرض **Apps** فقط moduleهایی را نشان می‌دهد که در manifest آن‌ها `application=True` است؛ این flag برای addonهای کاربردی پروژه اضافه شده است. `l10n_ir_fonts`, `persian_translation`, `payment_zarinpal`, `disable_enterprise` و `l10n_ir_account_reports` اکنون در مسیر صحیح `/mnt/extra-addons` قرار دارند.
+
+دو addon محدودیت dependency دارند: `disable_enterprise` به `web_enterprise` و `l10n_ir_account_reports` به `account_reports` نیاز دارند؛ هر دو در image رسمی Community موجود نیستند و در Community قابل نصب نخواهند بود. برای آن‌ها باید Odoo Enterprise با addonهای Enterprise متناظر استفاده شود. `l10n_ir_fonts`, `persian_translation` و `payment_zarinpal` در image Community تست و قابل نصب هستند. این نتیجه با تعریف رسمی `application`, `installable` و `depends` در manifest Odoo سازگار است.
+
 ## بهینه‌سازی performance
 
 در production، Odoo با `ODOO_WORKERS=2` و `ODOO_MAX_CRON_THREADS=1` شروع می‌شود و از multiprocessing استفاده می‌کند. مقدار workers باید با CPU و RAM واقعی PaaS تنظیم شود؛ راهنمای رسمی Odoo برای تخمین نظری از `(CPU × 2) + 1` استفاده می‌کند، اما RAM و تعداد connectionهای PostgreSQL محدودکنندهٔ اصلی هستند. برای سرویس کوچک با 1 تا 2 vCPU و RAM محدود، 2 worker نقطهٔ شروع امن‌تری از افزایش بی‌رویه است. برای بار بالاتر، مقدار را مرحله‌ای افزایش دهید و CPU، RAM، latency و database connections را از metrics سرویس بررسی کنید.

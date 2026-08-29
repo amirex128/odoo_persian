@@ -23,4 +23,5 @@
     ],
     },
     "installable": True,
+    "application": True,
 }
