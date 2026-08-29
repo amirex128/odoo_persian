@@ -1,11 +1,28 @@
 #!/bin/bash
 set -e
 
-echo "Fixing permissions..."
-mkdir -p /var/lib/odoo/sessions /mnt/extra-addons
-chown -R odoo:odoo /var/lib/odoo /mnt/extra-addons
-chmod -R 700 /var/lib/odoo
-chmod -R 755 /mnt/extra-addons
+# The image config is owned by odoo and may be mounted read-only by a PaaS.
+# Render secrets into a writable runtime copy, then delegate DB readiness and
+# PostgreSQL argument handling to the official Odoo entrypoint.
+runtime_config=/tmp/odoo-runtime.conf
+cp /etc/odoo/odoo.conf "$runtime_config"
 
-echo "Permissions fixed. Starting Odoo as user odoo..."
-exec su -s /bin/bash odoo -c "/entrypoint.sh $*"
+ODOO_ADMIN_PASSWD=${ODOO_ADMIN_PASSWD:-change-me-before-production}
+ODOO_LIST_DB=${ODOO_LIST_DB:-True}
+escaped_passwd=$(printf '%s' "$ODOO_ADMIN_PASSWD" | sed 's/[&|\\]/\\&/g')
+escaped_list_db=$(printf '%s' "$ODOO_LIST_DB" | sed 's/[&|\\]/\\&/g')
+sed -i "s|__ODOO_ADMIN_PASSWD__|${escaped_passwd}|g; s|__ODOO_LIST_DB__|${escaped_list_db}|g" "$runtime_config"
+
+# Odoo imports its config module before processing CLI arguments, so point the
+# environment variable at the rendered file as well as replacing --config.
+export ODOO_RC="$runtime_config"
+args=()
+for arg in "$@"; do
+    if [ "$arg" = "--config=/etc/odoo/odoo.conf" ]; then
+        args+=("--config=$runtime_config")
+    else
+        args+=("$arg")
+    fi
+done
+
+exec /entrypoint.sh "${args[@]}"
