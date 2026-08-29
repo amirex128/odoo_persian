@@ -13,18 +13,21 @@
 | `config/odoo.conf` | تنظیم addons، data directory، پورت‌ها و محدودیت‌ها |
 | `addons/` | addonهای OCA/web شاخهٔ `19.0` |
 | `docker-compose.yml` | اجرای کامل محلی با PostgreSQL و mount زندهٔ addonها |
-| `.env.example` | نمونهٔ متغیرهای محیطی؛ فایل واقعی `.env` commit نمی‌شود |
+| `.env.compose.example` | env نمونه برای اجرای Docker Compose لوکال |
+| `.env.paas.example` | env نمونه برای PaaS و PostgreSQL خارجی |
 
 ## راه‌اندازی روی PaaS با Dockerfile
 
-در تنظیمات build سرویس، ریشهٔ این repository را به‌عنوان context انتخاب کنید و Dockerfile پیش‌فرض را استفاده کنید. سرویس باید HTTP را روی پورت **8069** به بیرون publish کند؛ پورت **8072** برای gevent/live-bus در صورت پشتیبانی PaaS قابل publish است.
+در تنظیمات build سرویس، ریشهٔ این repository را به‌عنوان context انتخاب کنید و Dockerfile پیش‌فرض را استفاده کنید. فایل `.env.paas.example` فقط template است؛ مقادیر واقعی آن را در بخش Environment/Secrets سرویس PaaS ثبت کنید، زیرا Dockerfile به‌تنهایی فایل `.env` را از filesystem سرویس بارگذاری نمی‌کند. سرویس باید HTTP را روی پورت **8069** به بیرون publish کند؛ پورت **8072** برای gevent/live-bus در صورت پشتیبانی PaaS قابل publish است.
 
 متغیرهای runtime زیر را در بخش Secrets/Environment سرویس ثبت کنید:
 
 | متغیر | مقدار نمونه | توضیح |
 |---|---|---|
-| `HOST` | `postgres-service` | hostname داخلی PostgreSQL |
-| `PORT` | `5432` | پورت PostgreSQL |
+| `HOST` | `postgres-service` | hostname یا آدرس سرور PostgreSQL خارجی |
+| `POSTGRES_HOST` | `postgres-service` | نام خواناتر برای مستندسازی آدرس؛ مقدار نهایی اتصال توسط `HOST` مصرف می‌شود |
+| `POSTGRES_PORT` | `5432` | پورت PostgreSQL؛ برای PaaS مقدار واقعی سرویس را وارد کنید |
+| `PORT` | `5432` | پورت PostgreSQL که Odoo مصرف می‌کند |
 | `USER` | `odoo` | role PostgreSQL |
 | `PASSWORD` | secret | رمز role PostgreSQL |
 | `ODOO_ADMIN_PASSWD` | secret جداگانه | master password مدیریت database در Odoo |
@@ -40,14 +43,14 @@
 | `/mnt/extra-addons` | معمولاً لازم نیست | اختیاری | addonها در image build کپی شده‌اند؛ فقط برای override یا addonهای خارج از Git استفاده شود |
 | `/etc/odoo` | معمولاً لازم نیست | اختیاری | config در image وجود دارد؛ mount کردن کل این مسیر می‌تواند فایل config image را override کند |
 
-پایگاه‌داده و filestore باید هر دو backup شوند. volume جایگزین backup نیست. اگر PaaS فقط یک volume اجازه می‌دهد، `/var/lib/odoo` را انتخاب کنید و PostgreSQL را به سرویس مدیریت‌شدهٔ جداگانه وصل کنید.
+در Compose، volume پایگاه‌داده روی `/var/lib/postgresql` mount می‌شود، نه `/var/lib/postgresql/data`؛ این الگوی لازم imageهای PostgreSQL 18+ برای data directory نسخه‌ای است. پایگاه‌داده و filestore باید هر دو backup شوند. volume جایگزین backup نیست. اگر PaaS فقط یک volume اجازه می‌دهد، `/var/lib/odoo` را انتخاب کنید و PostgreSQL را به سرویس مدیریت‌شدهٔ جداگانه وصل کنید.
 
 ## اجرای محلی
 
 ابتدا فایل env را بسازید و secretهای آن را تغییر دهید:
 
 ```bash
-cp .env.example .env
+cp .env.compose.example .env
 ```
 
 سپس build و اجرا کنید:
@@ -75,7 +78,7 @@ docker compose down
 docker compose down -v
 ```
 
-در compose، پوشهٔ `./addons` روی `/mnt/extra-addons` mount شده است؛ بنابراین تغییر یا افزودن یک addon در سیستم محلی، بدون rebuild image در container قابل مشاهده خواهد بود. برای فعال‌سازی addon در database، از Apps با حالت developer، گزینهٔ **Update Apps List** و سپس نصب addon استفاده کنید. صرفاً قرارگرفتن فایل addon روی filesystem به‌معنی نصب آن در database نیست.
+در Compose، image پیش‌فرض database برابر `pgvector/pgvector:0.8.6-pg18-trixie` است؛ این image از PostgreSQL 18 به‌همراه pgvector استفاده می‌کند. Registry رسمی pgvector در حال حاضر tag دقیق `18.1` منتشر نمی‌کند و tag `pg18` را روی minor version فعلی PostgreSQL 18 ارائه می‌دهد؛ بنابراین اگر PaaS شما الزام سخت برای PostgreSQL 18.1 دارد، باید image سفارشی جداگانه بر پایهٔ `postgres:18.1` ساخته شود. پوشهٔ `./addons` روی `/mnt/extra-addons` mount شده است؛ بنابراین تغییر یا افزودن یک addon در سیستم محلی، بدون rebuild image در container قابل مشاهده خواهد بود. برای فعال‌سازی addon در database، از Apps با حالت developer، گزینهٔ **Update Apps List** و سپس نصب addon استفاده کنید. صرفاً قرارگرفتن فایل addon روی filesystem به‌معنی نصب آن در database نیست.
 
 ## اجرای مستقیم image مانند PaaS
 
@@ -119,3 +122,4 @@ docker compose exec odoo bash -lc \
 [3] [Odoo Official Image — Docker Hub](https://hub.docker.com/_/odoo)
 [4] [Odoo official Docker repository — 19.0](https://github.com/odoo/docker/tree/master/19.0)
 [5] [OCA/web — branch 19.0](https://github.com/OCA/web/tree/19.0)
+[6] [pgvector official Docker image](https://hub.docker.com/r/pgvector/pgvector)

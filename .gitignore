@@ -1,4 +1,7 @@
 .env
+.env.compose
+.env.paas
+.env.local
 *.log
 __pycache__/
 *.pyc
@@ -6,3 +9,7 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# Keep documented templates versioned.
+!.env.compose.example
+!.env.paas.example
