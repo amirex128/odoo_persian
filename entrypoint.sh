@@ -1,12 +1,18 @@
 #!/bin/bash
 set -e
 
+# A PaaS persistent disk is commonly mounted as root:root and hides the
+# ownership baked into the image. Prepare the mounted data directory first.
+mkdir -p /var/lib/odoo/sessions
+chown -R odoo:odoo /var/lib/odoo
+chmod 750 /var/lib/odoo
+chmod 700 /var/lib/odoo/sessions
+
 # The image config is owned by odoo and may be mounted read-only by a PaaS.
 # Render secrets into a writable runtime copy, then delegate DB readiness and
 # PostgreSQL argument handling to the official Odoo entrypoint.
 runtime_config=/tmp/odoo-runtime.conf
 cp /etc/odoo/odoo.conf "$runtime_config"
-
 ODOO_ADMIN_PASSWD=${ODOO_ADMIN_PASSWD:-change-me-before-production}
 ODOO_LIST_DB=${ODOO_LIST_DB:-True}
 escaped_passwd=$(printf '%s' "$ODOO_ADMIN_PASSWD" | sed 's/[&|\\]/\\&/g')
@@ -25,4 +31,5 @@ for arg in "$@"; do
     fi
 done
 
-exec /entrypoint.sh "${args[@]}"
+# Keep the application process non-root after preparing the mounted volume.
+exec su -s /bin/bash odoo -c 'exec /entrypoint.sh "$@"' -- "${args[@]}"

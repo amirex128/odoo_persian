@@ -13,7 +13,9 @@ RUN chown -R odoo:odoo /mnt/extra-addons /etc/odoo/odoo.conf \
     && chmod -R a+rX /mnt/extra-addons \
     && chmod 755 /usr/local/bin/project-entrypoint.sh
 
-USER odoo
+# The wrapper starts as root only to fix ownership on mounted persistent data,
+# then drops privileges before launching Odoo.
+USER root
 EXPOSE 8069 8072
 
 ENTRYPOINT ["/usr/local/bin/project-entrypoint.sh"]

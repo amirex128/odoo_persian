@@ -39,11 +39,11 @@ psql -U postgres -c "CREATE USER odoo128 WITH PASSWORD 'afFXQuCoAdUR5rdn9t5d' CR
 
 | Mount path | نوع | ضرورت | دلیل |
 |---|---|---|---|
-| `/var/lib/odoo` | Persistent volume | ضروری برای production | filestore، session و داده‌های runtime Odoo |
+| `/var/lib/odoo` | Persistent volume | ضروری برای production | filestore، session و داده‌های runtime Odoo؛ entrypoint در startup مالکیت آن را به `odoo:odoo` اصلاح می‌کند |
 | `/mnt/extra-addons` | معمولاً لازم نیست | اختیاری | addonها در image build کپی شده‌اند؛ فقط برای override یا addonهای خارج از Git استفاده شود |
 | `/etc/odoo` | معمولاً لازم نیست | اختیاری | config در image وجود دارد؛ mount کردن کل این مسیر می‌تواند فایل config image را override کند |
 
-در Compose، volume پایگاه‌داده روی `/var/lib/postgresql` mount می‌شود، نه `/var/lib/postgresql/data`؛ این الگوی لازم imageهای PostgreSQL 18+ برای data directory نسخه‌ای است. پایگاه‌داده و filestore باید هر دو backup شوند. volume جایگزین backup نیست. اگر PaaS فقط یک volume اجازه می‌دهد، `/var/lib/odoo` را انتخاب کنید و PostgreSQL را به سرویس مدیریت‌شدهٔ جداگانه وصل کنید.
+در Compose، volume پایگاه‌داده روی `/var/lib/postgresql` mount می‌شود، نه `/var/lib/postgresql/data`؛ این الگوی لازم imageهای PostgreSQL 18+ برای data directory نسخه‌ای است. اگر PaaS دیسک را با `root:root` mount کند، image هنگام startup با دسترسی root پوشهٔ `/var/lib/odoo/sessions` را می‌سازد، مالکیت کل data directory را به `odoo:odoo` تغییر می‌دهد و سپس Odoo را با کاربر `odoo` اجرا می‌کند. بنابراین لازم نیست روی دیسک از قبل permission خاصی تنظیم کنید؛ فقط volume را روی همین مسیر mount کنید. پایگاه‌داده و filestore باید هر دو backup شوند. volume جایگزین backup نیست. اگر PaaS فقط یک volume اجازه می‌دهد، `/var/lib/odoo` را انتخاب کنید و PostgreSQL را به سرویس مدیریت‌شدهٔ جداگانه وصل کنید.
 
 ## اجرای محلی
 
