@@ -22,9 +22,12 @@ runtime_config=/tmp/odoo-runtime.conf
 cp /etc/odoo/odoo.conf "$runtime_config"
 ODOO_ADMIN_PASSWD=${ODOO_ADMIN_PASSWD:-change-me-before-production}
 ODOO_LIST_DB=${ODOO_LIST_DB:-True}
+# Odoo recommends multiprocessing in production. Tune these per available RAM/CPU.
+ODOO_WORKERS=${ODOO_WORKERS:-2}
+ODOO_MAX_CRON_THREADS=${ODOO_MAX_CRON_THREADS:-1}
 escaped_passwd=$(printf '%s' "$ODOO_ADMIN_PASSWD" | sed 's/[&|\\]/\\&/g')
 escaped_list_db=$(printf '%s' "$ODOO_LIST_DB" | sed 's/[&|\\]/\\&/g')
-sed -i "s|__ODOO_ADMIN_PASSWD__|${escaped_passwd}|g; s|__ODOO_LIST_DB__|${escaped_list_db}|g" "$runtime_config"
+sed -i "s|__ODOO_ADMIN_PASSWD__|${escaped_passwd}|g; s|__ODOO_LIST_DB__|${escaped_list_db}|g; s|__ODOO_WORKERS__|${ODOO_WORKERS}|g; s|__ODOO_MAX_CRON_THREADS__|${ODOO_MAX_CRON_THREADS}|g" "$runtime_config"
 
 # Odoo imports its config module before processing CLI arguments, so point the
 # environment variable at the rendered file as well as replacing --config.

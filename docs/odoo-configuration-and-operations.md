@@ -204,3 +204,36 @@ pg_restore -h <POSTGRES_HOST> -p <POSTGRES_PORT> -U odoo \
 [2] [Odoo 19 — Source install](https://www.odoo.com/documentation/19.0/administration/on_premise/source.html)
 [3] [pgvector — Official documentation and Docker images](https://github.com/pgvector/pgvector)
 [4] [PostgreSQL — CREATE ROLE](https://www.postgresql.org/docs/current/sql-createrole.html)
+
+## 12. بهینه‌سازی performance
+
+Odoo در حالت پیش‌فرض با `workers=0` از server چندریسمانی استفاده می‌کند که برای development مناسب است. مستندات رسمی Odoo برای production، multiprocessing server را با مقدار non-zero برای `workers` توصیه می‌کند [1]. این پروژه مقدار را از environment می‌گیرد:
+
+```env
+ODOO_WORKERS=2
+ODOO_MAX_CRON_THREADS=1
+```
+
+قاعدهٔ نظری Odoo برای سقف workerها `(CPU * 2) + 1` است و تقریباً هر worker سبک 150MB و worker سنگین 1GB RAM مصرف می‌کند [1]. این فقط نقطهٔ شروع است؛ برای PaaS کوچک، 2 worker معمولاً safer است و باید با metrics واقعی CPU/RAM، latency و تعداد connectionهای PostgreSQL تنظیم شود. افزایش workers بدون RAM کافی سرعت را کم و باعث OOM/restart می‌کند.
+
+در deployment پشت reverse proxy، `proxy_mode=True` و `gevent_port=8072` لازم است. Odoo یک worker اختصاصی gevent برای live chat/websocket ایجاد می‌کند و proxy باید مسیرهای websocket را به آن port route کند [1]. پورت HTTP اصلی `8069` است.
+
+تنظیمات memory/time به‌عنوان guardrail باقی می‌مانند:
+
+```ini
+limit_memory_hard = 2684354560
+limit_memory_soft = 2147483648
+limit_time_cpu = 600
+limit_time_real = 1200
+limit_request = 8192
+max_cron_threads = 1
+```
+
+این مقادیر را بر اساس memory limit واقعی PaaS تنظیم کنید. افزایش hard limit بدون افزایش RAM، optimization نیست. برای database خارجی، latency شبکه و `db_maxconn` نیز مهم‌اند؛ PostgreSQL managed باید ظرفیت connection متناسب با مجموع workerها و سرویس‌های دیگر داشته باشد.
+
+بهینه‌سازی application باید با اندازه‌گیری انجام شود: queryهای N+1 را حذف کنید، روی فیلترها و relationهای پرتکرار index مناسب بسازید، عملیات ORM را batch کنید، cronهای سنگین را زمان‌بندی کنید و گزارش‌های بزرگ را صفحه‌بندی کنید. فعال‌کردن `log_sql`، debug asset یا log level بسیار verbose در production می‌تواند I/O را زیاد کند و فقط برای profiling موقت مناسب است.
+
+## منابع performance
+
+[1] [Odoo 19 — System configuration](https://www.odoo.com/documentation/19.0/administration/on_premise/deploy.html)
+[2] [Odoo 19 — Command-line interface](https://www.odoo.com/documentation/19.0/developer/reference/cli.html)

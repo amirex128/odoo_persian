@@ -17,6 +17,7 @@
 | `.env.paas.example` | env نمونه برای PaaS و PostgreSQL خارجی |
 | `docs/odoo-configuration-and-operations.md` | راهنمای جامع تنظیمات، کانفیگ، امنیت، PostgreSQL/pgvector و عملیات Odoo |
 | `docs/odoo-addon-development.md` | راهنمای جامع ساخت، توسعه، امنیت و تست addon |
+| تنظیمات performance | workers، cron، gevent و limits در env و `config/odoo.conf` |
 
 ## راه‌اندازی روی PaaS با Dockerfile
 برای ساخت role اختصاصی Odoo در PostgreSQL، با administrator وارد database `postgres` شوید:
@@ -139,6 +140,21 @@ docker compose exec odoo bash -lc \
 ```
 
 یکی از addonهای قابل بررسی `web_responsive` است. یک addon تا زمانی که dependencyهای آن در database نصب نشده باشند نصب نمی‌شود. `web_widget_bokeh_chart` نیز طبق manifest خود به `bokeh==3.9.0` نیاز دارد و Dockerfile آن را نصب می‌کند.
+
+## بهینه‌سازی performance
+
+در production، Odoo با `ODOO_WORKERS=2` و `ODOO_MAX_CRON_THREADS=1` شروع می‌شود و از multiprocessing استفاده می‌کند. مقدار workers باید با CPU و RAM واقعی PaaS تنظیم شود؛ راهنمای رسمی Odoo برای تخمین نظری از `(CPU × 2) + 1` استفاده می‌کند، اما RAM و تعداد connectionهای PostgreSQL محدودکنندهٔ اصلی هستند. برای سرویس کوچک با 1 تا 2 vCPU و RAM محدود، 2 worker نقطهٔ شروع امن‌تری از افزایش بی‌رویه است. برای بار بالاتر، مقدار را مرحله‌ای افزایش دهید و CPU، RAM، latency و database connections را از metrics سرویس بررسی کنید.
+
+`gevent_port=8072` برای live bus باقی می‌ماند و reverse proxy باید websocket/live requests را مطابق مستندات Odoo به آن route کند. `proxy_mode=True` فقط زمانی صحیح است که سرویس پشت reverse proxy/PaaS باشد. `limit_memory_*` و `limit_time_*` برای recycle کردن workerهای پرمصرف حفظ شده‌اند؛ افزایش آن‌ها بدون افزایش RAM می‌تواند باعث OOM شود.
+
+تنظیمات performance در `.env.paas.example` و `.env.compose.example` قابل تغییر هستند:
+
+```env
+ODOO_WORKERS=2
+ODOO_MAX_CRON_THREADS=1
+```
+
+افزایش سرعت فقط با workers حل نمی‌شود. queryهای سنگین addonها، نبود index، گزارش‌های بزرگ، تعداد زیاد cronها، latency PostgreSQL و assetهای frontend نیز باید با profiling و metrics بررسی شوند. از فعال‌کردن `log_sql` یا debug logging در production خودداری کنید، زیرا I/O و حجم log را بالا می‌برد.
 
 ## نکات production
 
