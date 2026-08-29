@@ -8,6 +8,13 @@ chown -R odoo:odoo /var/lib/odoo
 chmod 750 /var/lib/odoo
 chmod 700 /var/lib/odoo/sessions
 
+# Accept both the official Odoo image names and the more explicit
+# POSTGRES_* names commonly exposed by PaaS database services.
+if [ -n "${POSTGRES_HOST:-}" ]; then export HOST="$POSTGRES_HOST"; fi
+if [ -n "${POSTGRES_PORT:-}" ]; then export PORT="$POSTGRES_PORT"; fi
+if [ -n "${POSTGRES_USER:-}" ]; then export USER="$POSTGRES_USER"; fi
+if [ -n "${POSTGRES_PASSWORD:-}" ]; then export PASSWORD="$POSTGRES_PASSWORD"; fi
+
 # The image config is owned by odoo and may be mounted read-only by a PaaS.
 # Render secrets into a writable runtime copy, then delegate DB readiness and
 # PostgreSQL argument handling to the official Odoo entrypoint.

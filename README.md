@@ -17,19 +17,17 @@
 | `.env.paas.example` | env نمونه برای PaaS و PostgreSQL خارجی |
 
 ## راه‌اندازی روی PaaS با Dockerfile
-psql -U postgres -c "CREATE USER odoo128 WITH PASSWORD 'afFXQuCoAdUR5rdn9t5d' CREATEDB;"
+psql -U postgres -c "CREATE USER odoo WITH PASSWORD '<POSTGRES_PASSWORD>' CREATEDB;"
 در تنظیمات build سرویس، ریشهٔ این repository را به‌عنوان context انتخاب کنید و Dockerfile پیش‌فرض را استفاده کنید. فایل `.env.paas.example` فقط template است؛ مقادیر واقعی آن را در بخش Environment/Secrets سرویس PaaS ثبت کنید، زیرا Dockerfile به‌تنهایی فایل `.env` را از filesystem سرویس بارگذاری نمی‌کند. سرویس باید HTTP را روی پورت **8069** به بیرون publish کند؛ پورت **8072** برای gevent/live-bus در صورت پشتیبانی PaaS قابل publish است.
 
 متغیرهای runtime زیر را در بخش Secrets/Environment سرویس ثبت کنید:
 
 | متغیر | مقدار نمونه | توضیح |
 |---|---|---|
-| `HOST` | `postgres-service` | hostname یا آدرس سرور PostgreSQL خارجی |
-| `POSTGRES_HOST` | `postgres-service` | نام خواناتر برای مستندسازی آدرس؛ مقدار نهایی اتصال توسط `HOST` مصرف می‌شود |
-| `POSTGRES_PORT` | `5432` | پورت PostgreSQL؛ برای PaaS مقدار واقعی سرویس را وارد کنید |
-| `PORT` | `5432` | پورت PostgreSQL که Odoo مصرف می‌کند |
-| `USER` | `odoo` | role PostgreSQL |
-| `PASSWORD` | secret | رمز role PostgreSQL |
+| `POSTGRES_HOST` یا `HOST` | `postgres-service` | hostname یا آدرس سرور PostgreSQL خارجی |
+| `POSTGRES_PORT` یا `PORT` | `5432` | پورت PostgreSQL خارجی |
+| `POSTGRES_USER` یا `USER` | `odoo` | role واقعی PostgreSQL |
+| `POSTGRES_PASSWORD` یا `PASSWORD` | secret | رمز همان role PostgreSQL؛ نه `ODOO_ADMIN_PASSWD` |
 | `ODOO_ADMIN_PASSWD` | secret جداگانه | master password مدیریت database در Odoo |
 | `ODOO_LIST_DB` | `False` در production | جلوگیری از نمایش database selector پس از تعیین dbfilter |
 
@@ -44,6 +42,10 @@ psql -U postgres -c "CREATE USER odoo128 WITH PASSWORD 'afFXQuCoAdUR5rdn9t5d' CR
 | `/etc/odoo` | معمولاً لازم نیست | اختیاری | config در image وجود دارد؛ mount کردن کل این مسیر می‌تواند فایل config image را override کند |
 
 در Compose، volume پایگاه‌داده روی `/var/lib/postgresql` mount می‌شود، نه `/var/lib/postgresql/data`؛ این الگوی لازم imageهای PostgreSQL 18+ برای data directory نسخه‌ای است. اگر PaaS دیسک را با `root:root` mount کند، image هنگام startup با دسترسی root پوشهٔ `/var/lib/odoo/sessions` را می‌سازد، مالکیت کل data directory را به `odoo:odoo` تغییر می‌دهد و سپس Odoo را با کاربر `odoo` اجرا می‌کند. بنابراین لازم نیست روی دیسک از قبل permission خاصی تنظیم کنید؛ فقط volume را روی همین مسیر mount کنید. پایگاه‌داده و filestore باید هر دو backup شوند. volume جایگزین backup نیست. اگر PaaS فقط یک volume اجازه می‌دهد، `/var/lib/odoo` را انتخاب کنید و PostgreSQL را به سرویس مدیریت‌شدهٔ جداگانه وصل کنید.
+
+### خطای password authentication failed
+
+این خطا یعنی DNS، آدرس و پورت درست هستند، اما password ارسال‌شده برای role PostgreSQL صحیح نیست. مقدار `ODOO_ADMIN_PASSWD` فقط master password داخلی Odoo است و نباید به‌عنوان رمز PostgreSQL استفاده شود. در PaaS، متغیرهای `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER` و `POSTGRES_PASSWORD` را دقیقاً از بخش connection/service PostgreSQL کپی کنید؛ entrypoint آن‌ها را به متغیرهای رسمی image Odoo نگاشت می‌کند. اگر database با یک volume قبلاً initialize شده باشد، تغییر `POSTGRES_PASSWORD` در Environment به‌تنهایی password role را عوض نمی‌کند؛ باید password role `odoo` را داخل PostgreSQL با `ALTER ROLE odoo PASSWORD '...'` تغییر دهید یا secret PaaS را با password فعلی database یکسان کنید. همچنین credentialهایی که قبلاً در محیط یا Git قرار گرفته‌اند باید فوراً rotate شوند.
 
 ## اجرای محلی
 
