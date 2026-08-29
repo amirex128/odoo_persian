@@ -17,7 +17,7 @@
 | `.env.paas.example` | env نمونه برای PaaS و PostgreSQL خارجی |
 
 ## راه‌اندازی روی PaaS با Dockerfile
-psql -U postgres -c "CREATE USER odoo WITH PASSWORD '<POSTGRES_PASSWORD>' CREATEDB;"
+    psql -U postgres -c "CREATE USER odoo WITH PASSWORD 'hBn7seWC1nKMgywD8lUw' CREATEDB;"
 در تنظیمات build سرویس، ریشهٔ این repository را به‌عنوان context انتخاب کنید و Dockerfile پیش‌فرض را استفاده کنید. فایل `.env.paas.example` فقط template است؛ مقادیر واقعی آن را در بخش Environment/Secrets سرویس PaaS ثبت کنید، زیرا Dockerfile به‌تنهایی فایل `.env` را از filesystem سرویس بارگذاری نمی‌کند. سرویس باید HTTP را روی پورت **8069** به بیرون publish کند؛ پورت **8072** برای gevent/live-bus در صورت پشتیبانی PaaS قابل publish است.
 
 متغیرهای runtime زیر را در بخش Secrets/Environment سرویس ثبت کنید:
