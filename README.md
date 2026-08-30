@@ -179,3 +179,54 @@ ODOO_MAX_CRON_THREADS=1
 [4] [Odoo official Docker repository — 19.0](https://github.com/odoo/docker/tree/master/19.0)
 [5] [OCA/web — branch 19.0](https://github.com/OCA/web/tree/19.0)
 [6] [pgvector official Docker image](https://hub.docker.com/r/pgvector/pgvector)
+
+## اجرای source-based Enterprise image
+
+این repository اکنون از source تجاری Odoo استفاده می‌کند و دیگر از `odoo:19.0` به‌عنوان base image استفاده نمی‌کند. سورس کامل در مسیر `odoo-19.0+e.20260223/` قرار دارد. کانفیگ اجرایی نیز مستقیماً در `odoo-19.0+e.20260223/odoo.conf` است و پوشهٔ خارجی `config/` عمداً حذف شده است.
+
+Dockerfile source را مستقیماً با launcher رسمی `odoo-19.0+e.20260223/setup/odoo` اجرا می‌کند. متغیرهای secret در startup داخل نسخهٔ runtime کانفیگ render می‌شوند و هیچ credential در source یا Git ذخیره نمی‌شود. addonهای خارجی از `/mnt/extra-addons` به source اضافه می‌شوند.
+
+برای PaaS، Dockerfile را build کنید و متغیرهای `.env.paas.example` را در بخش Environment/Secrets سرویس تنظیم کنید. PostgreSQL باید سرویس جداگانه و persistent باشد:
+
+```env
+POSTGRES_HOST=database-iwo-service
+POSTGRES_PORT=5432
+POSTGRES_USER=odoo
+POSTGRES_PASSWORD=<password-of-the-postgresql-role>
+ODOO_ADMIN_PASSWD=<separate-odoo-master-password>
+ODOO_LIST_DB=False
+ODOO_WORKERS=2
+ODOO_MAX_CRON_THREADS=1
+```
+
+برای اجرای مستقیم image:
+
+```bash
+docker build -t odoo19-enterprise .
+docker run --rm --name odoo19-enterprise \
+  -p 8069:8069 -p 8072:8072 \
+  -e POSTGRES_HOST=<postgres-host> \
+  -e POSTGRES_PORT=5432 \
+  -e POSTGRES_USER=odoo \
+  -e POSTGRES_PASSWORD='<postgres-role-password>' \
+  -e ODOO_ADMIN_PASSWD='<odoo-master-password>' \
+  -e ODOO_LIST_DB=False \
+  -v odoo-data:/var/lib/odoo \
+  odoo19-enterprise
+```
+
+برای local، ابتدا `.env.compose.example` را به `.env` کپی و secretها را تغییر دهید، سپس `docker compose up -d --build` را اجرا کنید. PostgreSQL از `pgvector/pgvector:0.8.6-pg18-trixie` استفاده می‌کند و volume آن روی `/var/lib/postgresql` قرار دارد.
+
+## GitHub Actions و GHCR
+
+فایل `.github/workflows/build-push-ghcr.yml` image را روی push شاخهٔ `master` build و به `ghcr.io/amirex128/odoo19-enterprise` push می‌کند. workflow از `secrets.GITHUB_TOKEN` داخلی GitHub استفاده می‌کند و به token دستی یا hardcoded password نیاز ندارد. repository باید دسترسی Packages write داشته باشد؛ این موضوع با `permissions: packages: write` در workflow تعریف شده است. tokenی که در پیام‌ها ارسال شده نباید در Git یا workflow قرار گیرد و باید revoke/rotate شود.
+
+## بررسی نصب addonهای Enterprise و ایرانی
+
+سورس تجاری شامل `web_enterprise` و `account_reports` است. هر پنج addon خارجی در image source-based و database آزمایشی با Odoo 19 نصب شدند: `l10n_ir_fonts`, `persian_translation`, `payment_zarinpal`, `disable_enterprise` و `l10n_ir_account_reports`. پس از افزودن addon یا rebuild، از مسیر **Apps → Update Apps List → Update** فهرست را refresh کنید. در اولین initialization، از `-i ... --stop-after-init` استفاده کنید تا database قبل از اجرای server اصلی کامل شود.
+
+## References
+
+[1] [Odoo 19 — Command-line interface](https://www.odoo.com/documentation/19.0/developer/reference/cli.html)
+[2] [Odoo 19 — System configuration and deployment](https://www.odoo.com/documentation/19.0/administration/on_premise/deploy.html)
+[3] [Odoo 19 — Module Manifests](https://www.odoo.com/documentation/19.0/developer/reference/backend/module.html)

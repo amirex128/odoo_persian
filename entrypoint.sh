@@ -1,45 +1,74 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# A PaaS persistent disk is commonly mounted as root:root and hides the
-# ownership baked into the image. Prepare the mounted data directory first.
+ODOO_HOME="${ODOO_HOME:-/opt/odoo/odoo-19.0+e.20260223}"
+SOURCE_CONFIG="${ODOO_HOME}/odoo.conf"
+RUNTIME_CONFIG="/tmp/odoo-runtime.conf"
+
 mkdir -p /var/lib/odoo/sessions
 chown -R odoo:odoo /var/lib/odoo
 chmod 750 /var/lib/odoo
 chmod 700 /var/lib/odoo/sessions
 
-# Accept both the official Odoo image names and the more explicit
-# POSTGRES_* names commonly exposed by PaaS database services.
-if [ -n "${POSTGRES_HOST:-}" ]; then export HOST="$POSTGRES_HOST"; fi
-if [ -n "${POSTGRES_PORT:-}" ]; then export PORT="$POSTGRES_PORT"; fi
-if [ -n "${POSTGRES_USER:-}" ]; then export USER="$POSTGRES_USER"; fi
-if [ -n "${POSTGRES_PASSWORD:-}" ]; then export PASSWORD="$POSTGRES_PASSWORD"; fi
+# Support both the explicit PaaS names and Odoo's conventional names.
+export HOST="${POSTGRES_HOST:-${HOST:-db}}"
+export PORT="${POSTGRES_PORT:-${PORT:-5432}}"
+export USER="${POSTGRES_USER:-${USER:-odoo}}"
+export PASSWORD="${POSTGRES_PASSWORD:-${PASSWORD:-}}"
 
-# The image config is owned by odoo and may be mounted read-only by a PaaS.
-# Render secrets into a writable runtime copy, then delegate DB readiness and
-# PostgreSQL argument handling to the official Odoo entrypoint.
-runtime_config=/tmp/odoo-runtime.conf
-cp /etc/odoo/odoo.conf "$runtime_config"
-ODOO_ADMIN_PASSWD=${ODOO_ADMIN_PASSWD:-change-me-before-production}
-ODOO_LIST_DB=${ODOO_LIST_DB:-True}
-# Odoo recommends multiprocessing in production. Tune these per available RAM/CPU.
-ODOO_WORKERS=${ODOO_WORKERS:-2}
-ODOO_MAX_CRON_THREADS=${ODOO_MAX_CRON_THREADS:-1}
-escaped_passwd=$(printf '%s' "$ODOO_ADMIN_PASSWD" | sed 's/[&|\\]/\\&/g')
-escaped_list_db=$(printf '%s' "$ODOO_LIST_DB" | sed 's/[&|\\]/\\&/g')
-sed -i "s|__ODOO_ADMIN_PASSWD__|${escaped_passwd}|g; s|__ODOO_LIST_DB__|${escaped_list_db}|g; s|__ODOO_WORKERS__|${ODOO_WORKERS}|g; s|__ODOO_MAX_CRON_THREADS__|${ODOO_MAX_CRON_THREADS}|g" "$runtime_config"
+: "${ODOO_ADMIN_PASSWD:=change-me-before-production}"
+: "${ODOO_LIST_DB:=False}"
+: "${ODOO_WORKERS:=2}"
+: "${ODOO_MAX_CRON_THREADS:=1}"
+: "${ODOO_DB_FILTER:=}"
+: "${ODOO_LOG_LEVEL:=warn}"
 
-# Odoo imports its config module before processing CLI arguments, so point the
-# environment variable at the rendered file as well as replacing --config.
-export ODOO_RC="$runtime_config"
+cp "$SOURCE_CONFIG" "$RUNTIME_CONFIG"
+
+escape_sed() {
+  printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
+}
+
+AP=$(escape_sed "$ODOO_ADMIN_PASSWD")
+LD=$(escape_sed "$ODOO_LIST_DB")
+WK=$(escape_sed "$ODOO_WORKERS")
+CR=$(escape_sed "$ODOO_MAX_CRON_THREADS")
+LF=$(escape_sed "$ODOO_LOG_LEVEL")
+DF=$(escape_sed "$ODOO_DB_FILTER")
+DH=$(escape_sed "$HOST")
+DP=$(escape_sed "$PORT")
+DU=$(escape_sed "$USER")
+DW=$(escape_sed "$PASSWORD")
+
+sed -i \
+  -e "s|__ODOO_ADMIN_PASSWD__|${AP}|g" \
+  -e "s|__ODOO_LIST_DB__|${LD}|g" \
+  -e "s|__ODOO_WORKERS__|${WK}|g" \
+  -e "s|__ODOO_MAX_CRON_THREADS__|${CR}|g" \
+  -e "s|__ODOO_LOG_LEVEL__|${LF}|g" \
+  -e "s|__ODOO_DB_FILTER__|${DF}|g" \
+  -e "s|__DB_HOST__|${DH}|g" \
+  -e "s|__DB_PORT__|${DP}|g" \
+  -e "s|__DB_USER__|${DU}|g" \
+  -e "s|__DB_PASSWORD__|${DW}|g" \
+  "$RUNTIME_CONFIG"
+
+chown odoo:odoo "$RUNTIME_CONFIG"
+chmod 640 "$RUNTIME_CONFIG"
+
+if [[ "${1:-}" == "odoo" ]]; then
+  shift
+  set -- python "$ODOO_HOME/setup/odoo" "$@"
+fi
+
 args=()
 for arg in "$@"; do
-    if [ "$arg" = "--config=/etc/odoo/odoo.conf" ]; then
-        args+=("--config=$runtime_config")
-    else
-        args+=("$arg")
-    fi
+  if [[ "$arg" == --config=* ]]; then
+    args+=("--config=$RUNTIME_CONFIG")
+  else
+    args+=("$arg")
+  fi
 done
 
-# Keep the application process non-root after preparing the mounted volume.
-exec su -s /bin/bash odoo -c 'exec /entrypoint.sh "$@"' -- "${args[@]}"
+export ODOO_RC="$RUNTIME_CONFIG"
+exec gosu odoo "${args[@]}"

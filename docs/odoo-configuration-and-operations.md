@@ -237,3 +237,43 @@ max_cron_threads = 1
 
 [1] [Odoo 19 — System configuration](https://www.odoo.com/documentation/19.0/administration/on_premise/deploy.html)
 [2] [Odoo 19 — Command-line interface](https://www.odoo.com/documentation/19.0/developer/reference/cli.html)
+
+## 13. استقرار از سورس تجاری Odoo
+
+در این پروژه source کامل نسخهٔ `19.0+e.20260223` در مسیر `odoo-19.0+e.20260223/` نگهداری می‌شود. اجرای server با launcher رسمی `setup/odoo` انجام می‌شود و source با `PYTHONPATH` مستقیماً اجرا می‌گردد؛ بنابراین Dockerfile برای جلوگیری از ساخت wheel اضافی، source را دوباره به‌صورت package کپی نمی‌کند. این روش تمام فایل‌های source و Enterprise addons را حفظ می‌کند و image را کوچک‌تر و build را پایدارتر نگه می‌دارد.
+
+فایل `odoo.conf` در root خود source قرار دارد. entrypoint از آن یک نسخهٔ runtime در `/tmp/odoo-runtime.conf` می‌سازد و secretهای PostgreSQL و Odoo را فقط در runtime تزریق می‌کند. مقدارهای زیر در config به‌صورت placeholder باقی می‌مانند:
+
+```ini
+admin_passwd = __ODOO_ADMIN_PASSWD__
+db_host = __DB_HOST__
+db_port = __DB_PORT__
+db_user = __DB_USER__
+db_password = __DB_PASSWORD__
+addons_path = /opt/odoo/odoo-19.0+e.20260223/odoo/addons,/mnt/extra-addons
+```
+
+مسیر اول addons داخلی source تجاری و مسیر دوم external addons پروژه است. پنج addon ایرانی پس از build در `/mnt/extra-addons` قرار می‌گیرند؛ dependencyهای `web_enterprise` و `account_reports` نیز از source Enterprise resolve می‌شوند.
+
+## 14. initialization اولیهٔ Enterprise
+
+برای database جدید، initialization را به‌صورت one-shot و قبل از اجرای server پایدار انجام دهید:
+
+```bash
+python /opt/odoo/odoo-19.0+e.20260223/setup/odoo \
+  --config=/tmp/odoo-runtime.conf \
+  -d <database_name> \
+  -i base,l10n_ir_fonts,persian_translation,payment_zarinpal,disable_enterprise,l10n_ir_account_reports \
+  --stop-after-init
+```
+
+گزینهٔ `--stop-after-init` طبق CLI رسمی Odoo پس از تکمیل عملیات server را متوقف می‌کند. سپس process عادی را با همان config اجرا کنید. این ترتیب از race condition روی database نیمه‌ساخته و خطای موقت نبودن `ir_module_module` جلوگیری می‌کند.
+
+## 15. GitHub Actions و محرمانگی
+
+workflow پروژه image را روی GHCR منتشر می‌کند و باید از `secrets.GITHUB_TOKEN` داخلی GitHub استفاده کند. token شخصی یا password registry نباید در YAML، Dockerfile، README یا Git commit شود. اگر tokenی در گفتگو، log یا repository نمایش داده شد، آن را revoke و credential جدید را از مسیر امن GitHub تنظیم کنید.
+
+## منابع جدید
+
+[3] [Odoo 19 — Building a Module](https://www.odoo.com/documentation/19.0/developer/tutorials/backend.html)
+[4] [Odoo 19 — Command-line interface](https://www.odoo.com/documentation/19.0/developer/reference/cli.html)
