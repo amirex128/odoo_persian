@@ -141,7 +141,7 @@ docker compose exec odoo bash -lc \
 
 یکی از addonهای قابل بررسی `web_responsive` است. یک addon تا زمانی که dependencyهای آن در database نصب نشده باشند نصب نمی‌شود. `web_widget_bokeh_chart` نیز طبق manifest خود به `bokeh==3.9.0` نیاز دارد و Dockerfile آن را نصب می‌کند.
 
-برای پنج addon ایرانی، پس از deploy یا تغییر فایل‌ها باید در Odoo حالت developer را فعال کنید و از مسیر **Apps → Update Apps List → Update** فهرست را refresh کنید. فیلتر پیش‌فرض **Apps** فقط moduleهایی را نشان می‌دهد که در manifest آن‌ها `application=True` است؛ این flag برای addonهای کاربردی پروژه اضافه شده است. `l10n_ir_fonts`, `persian_translation`, `payment_zarinpal`, `disable_enterprise` و `l10n_ir_account_reports` اکنون در مسیر صحیح `/mnt/extra-addons` قرار دارند.
+برای هفت custom addon نهایی، پس از deploy یا تغییر فایل‌ها باید در Odoo حالت developer را فعال کنید و از مسیر **Apps → Update Apps List → Update** فهرست را refresh کنید. فیلتر پیش‌فرض **Apps** فقط moduleهایی را نشان می‌دهد که در manifest آن‌ها `application=True` است؛ برای moduleهای فنی، فیلتر **Apps** را بردارید. این هفت addon در مسیر صحیح `/mnt/extra-addons` قرار دارند: `l10n_ir_fonts`, `persian_translation`, `payment_zarinpal`, `disable_enterprise`, `l10n_ir_account_reports`, `l10n_ir_account` و `l10n_ir_states`. addon `parspack_auto_database_backup` عمداً حذف شده است، زیرا به dependency موجود نبودن `auto_database_backup` نیاز داشت.
 
 دو addon محدودیت dependency دارند: `disable_enterprise` به `web_enterprise` و `l10n_ir_account_reports` به `account_reports` نیاز دارند؛ هر دو در image رسمی Community موجود نیستند و در Community قابل نصب نخواهند بود. برای آن‌ها باید Odoo Enterprise با addonهای Enterprise متناظر استفاده شود. `l10n_ir_fonts`, `persian_translation` و `payment_zarinpal` در image Community تست و قابل نصب هستند. این نتیجه با تعریف رسمی `application`, `installable` و `depends` در manifest Odoo سازگار است.
 
@@ -230,3 +230,22 @@ docker run --rm --name odoo19-enterprise \
 [1] [Odoo 19 — Command-line interface](https://www.odoo.com/documentation/19.0/developer/reference/cli.html)
 [2] [Odoo 19 — System configuration and deployment](https://www.odoo.com/documentation/19.0/administration/on_premise/deploy.html)
 [3] [Odoo 19 — Module Manifests](https://www.odoo.com/documentation/19.0/developer/reference/backend/module.html)
+
+### RTL و rtlcss
+
+طبق راهنمای رسمی نصب Odoo از source، Node.js/npm و `rtlcss` برای تولید assetهای راست‌به‌چپ لازم هستند. Dockerfile این پروژه `rtlcss@4.3.0` را به‌صورت global نصب و در زمان build verify می‌کند:
+
+```bash
+rtlcss --version
+# rtlcss version: 4.3.0
+```
+
+پس از فعال‌سازی زبان فارسی، در صورت تغییر assetهای CSS، ابتدا assetها را با گزینهٔ **Assets Debugging** بررسی کنید و سپس cache مربوط به assetها را پاک/بازسازی نمایید. صرفاً نصب `rtlcss`، addon را در database نصب نمی‌کند؛ addonها باید از مسیر **Apps → Update Apps List** شناسایی و سپس نصب شوند.
+
+در اجرای دستی source خارج از Docker، dependencyها را مطابق مستندات Odoo نصب کنید:
+
+```bash
+sudo apt-get install -y nodejs npm
+sudo npm install --global rtlcss@4.3.0
+rtlcss --version
+```

@@ -12,8 +12,6 @@
     "category": "Technical",
     "version": "1.0.3",
     "depends": ["base"],
-    "installable": True,
-    "application": True,
     "data": [
         "security/ir.model.access.csv",
         "wizard/base_import_language_views.xml",

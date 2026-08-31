@@ -253,7 +253,7 @@ db_password = __DB_PASSWORD__
 addons_path = /opt/odoo/odoo-19.0+e.20260223/odoo/addons,/mnt/extra-addons
 ```
 
-مسیر اول addons داخلی source تجاری و مسیر دوم external addons پروژه است. پنج addon ایرانی پس از build در `/mnt/extra-addons` قرار می‌گیرند؛ dependencyهای `web_enterprise` و `account_reports` نیز از source Enterprise resolve می‌شوند.
+مسیر اول addons داخلی source تجاری و مسیر دوم external addons پروژه است. هفت custom addon پس از build در `/mnt/extra-addons` قرار می‌گیرند: `l10n_ir_fonts`, `persian_translation`, `payment_zarinpal`, `disable_enterprise`, `l10n_ir_account_reports`, `l10n_ir_account` و `l10n_ir_states`. dependencyهای `web_enterprise` و `account_reports` نیز از source Enterprise resolve می‌شوند. `parspack_auto_database_backup` عمداً در image قرار نگرفته است، چون به `auto_database_backup` وابستگی دارد که در source ارائه‌شده وجود ندارد.
 
 ## 14. initialization اولیهٔ Enterprise
 

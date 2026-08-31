@@ -31,6 +31,8 @@ RUN apt-get update \
         libxslt1-dev \
         libz-dev \
         node-less \
+        nodejs \
+        npm \
         postgresql-client \
         libsasl2-dev \
         wkhtmltopdf \
@@ -45,6 +47,8 @@ COPY odoo-19.0+e.20260223/ /opt/odoo/odoo-19.0+e.20260223/
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir -r "$ODOO_HOME/requirements.txt" \
     && python -m pip install --no-cache-dir 'bokeh==3.9.0' \
+    && npm install --global --no-audit --no-fund 'rtlcss@4.3.0' \
+    && rtlcss --version \
     && mkdir -p /mnt/extra-addons /var/lib/odoo/sessions \
     && chown -R odoo:odoo /var/lib/odoo /mnt/extra-addons
 
